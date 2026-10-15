@@ -1,0 +1,31 @@
+# Central configuration. Everything here is safe to edit.
+materials: [finger, metal, wood, plastic]
+zones: [wrist, mid_forearm]
+
+node:
+  sample_rate: 10000        # Hz per channel (5000 / 10000 / 20000)
+  pre_ms: 20                # pre-trigger window
+  tap_ms: 100               # tap window after trigger
+  threshold: 120            # ADC counts deviation from mid-rail
+  refractory_ms: 300
+  probe:
+    enabled: true
+    f_start: 300
+    f_end: 4000
+    duration_ms: 50
+    skip_ms: 3              # direct drive coupling dropped by the node
+    tail_ms: 10             # ring-down captured after the chirp
+
+ml:
+  model: rf                 # rf | svm
+  unknown_threshold: 0.5    # max class probability below this -> "unknown"
+  cv_folds: 5
+  user_sample_weight: 5.0   # weight of personal samples when adapting
+
+synthetic:
+  per_class: 300            # events per material x zone
+  seed: 7
+
+server:
+  host: 127.0.0.1
+  port: 8000

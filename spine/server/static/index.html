@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arm Acoustic Sensor</title>
+<style>
+:root{--bg:#0b1020;--panel:#141b30;--panel2:#1b2440;--line:#2a3558;--txt:#e8ecf8;--mut:#8f9bc0;
+--acc:#4aa3ff;--ok:#3ddc97;--warn:#ffb020;--bad:#ff4d5e;--info:#4aa3ff}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:17px/1.4 "Segoe UI",system-ui,sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+h1{font-size:20px;margin:0;font-weight:700;letter-spacing:.3px}
+.badge{padding:5px 12px;border-radius:999px;font-weight:700;font-size:14px;letter-spacing:.8px}
+.badge.sim{background:#5b3a00;color:#ffcf66;border:1px solid #ffb020}
+.badge.real{background:#06402a;color:#7cf0b8;border:1px solid var(--ok)}
+.pill{padding:4px 10px;border-radius:8px;background:var(--panel2);color:var(--mut);font-size:14px}
+.pill b{color:var(--txt)}
+nav{display:flex;gap:4px;padding:8px 16px;background:var(--bg);flex-wrap:wrap;border-bottom:1px solid var(--line)}
+nav button{background:none;border:0;color:var(--mut);font:600 16px inherit;padding:9px 16px;border-radius:8px;cursor:pointer}
+nav button.on{background:var(--panel2);color:var(--txt);box-shadow:inset 0 -3px 0 var(--acc)}
+main{padding:18px 20px;max-width:1500px;margin:auto}
+.page{display:none}.page.on{display:block}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:minmax(300px,1fr) minmax(300px,1.3fr)}
+@media(max-width:900px){.g2{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card h3{margin:0 0 10px;font-size:15px;color:var(--mut);text-transform:uppercase;letter-spacing:1px}
+.big{font-size:64px;font-weight:800;line-height:1.05;text-transform:uppercase}
+.mid{font-size:30px;font-weight:700}
+.bar{height:22px;background:var(--panel2);border-radius:11px;overflow:hidden}
+.bar>div{height:100%;background:linear-gradient(90deg,#2a7bd6,var(--ok));width:0;transition:width .25s}
+canvas{width:100%;display:block;background:#0e1427;border-radius:10px}
+button.btn,select,input{font:600 16px inherit;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:9px 14px}
+button.btn{cursor:pointer}button.btn:hover{border-color:var(--acc)}
+button.pri{background:#1f6fd1;border-color:#3b8cff}
+button.dng{background:#7a1f2b;border-color:var(--bad)}
+input{width:110px}input.wide{width:100%}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:600;position:sticky;top:0;background:var(--panel)}
+.scroll{max-height:60vh;overflow:auto}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mut{color:var(--mut)}
+.lvl-info{color:var(--info)}.lvl-warning{color:var(--warn)}.lvl-danger{color:var(--bad)}
+#banner{display:none;margin-bottom:14px;padding:16px 20px;border-radius:12px;font-size:26px;font-weight:800;cursor:pointer}
+#banner.info{background:#0f3a63;border:2px solid var(--info)}
+#banner.warning{background:#6a4500;border:2px solid var(--warn)}
+#banner.danger{background:#7d1020;border:2px solid var(--bad);animation:pulse .7s infinite alternate}
+@keyframes pulse{to{background:#b3162d}}
+#arm{width:100%;max-height:360px}
+.zone{fill:#1f2a4d;stroke:#3b4a7c;stroke-width:2;transition:fill .15s}
+.zone.hit{fill:#2a9d6a;stroke:#7cf0b8}
+.mic{fill:#ffb020}
+.cell{text-align:center;padding:12px;border-radius:8px}
+.simnote{color:#ffcf66;font-weight:700}
+.steps{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.steps span{padding:6px 12px;border-radius:8px;background:var(--panel2);color:var(--mut)}
+.steps span.on{background:#1f6fd1;color:#fff}.steps span.done{background:#0d4d33;color:#9ff0c8}
+.counter{font-size:130px;font-weight:800;text-align:center;line-height:1}
+.flash{animation:flash .35s}
+@keyframes flash{from{background:#2a9d6a}to{background:var(--panel)}}
+img.cm{width:100%;border-radius:10px;background:#fff}
+label{display:block;color:var(--mut);font-size:14px;margin:6px 0 2px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🦾 Wearable Acoustic Sensor</h1>
+  <span id="modeBadge" class="badge sim">…</span>
+  <span class="pill" id="pNode">node: <b>—</b></span>
+  <span class="pill" id="pRate">rate: <b>—</b></span>
+  <span class="pill" id="pFw">fw: <b>—</b></span>
+  <span class="pill" id="pEpm">events/min: <b>0</b></span>
+  <span class="pill" id="pUser">user: <b>default</b></span>
+  <span class="pill" id="pModel">model: <b>—</b></span>
+</header>
+<nav id="tabs"></nav>
+<main>
+<!-- LIVE -->
+<section class="page" id="p-live">
+  <div id="banner" title="click to acknowledge"></div>
+  <div class="grid g2">
+    <div class="card"><h3>Forearm</h3>
+      <svg id="arm" viewBox="0 0 520 220">
+        <path d="M20 70 Q20 40 60 40 L470 70 Q500 75 500 110 Q500 145 470 150 L60 180 Q20 180 20 150 Z" fill="#2b2f4a" stroke="#4b5686" stroke-width="3"/>
+        <rect class="zone" id="z-wrist" x="40" y="55" width="190" height="110" rx="16"/>
+        <rect class="zone" id="z-mid_forearm" x="250" y="60" width="200" height="100" rx="16"/>
+        <circle class="mic" cx="120" cy="110" r="12"/><text x="95" y="145" fill="#ffcf66" font-size="15">mic_0</text>
+        <circle class="mic" cx="330" cy="110" r="12"/><text x="305" y="145" fill="#ffcf66" font-size="15">mic_1</text>
+        <text x="60" y="80" fill="#cfd8ff" font-size="20" font-weight="700">WRIST</text>
+        <text x="280" y="85" fill="#cfd8ff" font-size="20" font-weight="700">MID-FOREARM</text>
+        <text x="485" y="50" fill="#8f9bc0" font-size="14" text-anchor="end">→ elbow</text>
+      </svg>
+      <div id="simTap" class="row" style="margin-top:8px;display:none">
+        <span class="simnote">SIMULATED:</span>
+        <select id="stM"></select><select id="stZ"></select>
+        <button class="btn" onclick="simTap()">Simulate tap</button>
+      </div>
+    </div>
+    <div class="card"><h3>Last tap</h3>
+      <div class="big" id="matName">—</div>
+      <div class="mid mut" id="zoneName">waiting for a tap…</div>
+      <div style="margin:14px 0 6px">Material confidence <b id="confTxt">0%</b></div>
+      <div class="bar"><div id="confBar"></div></div>
+      <div class="mut" style="margin-top:12px" id="evMeta">—</div>
+    </div>
+  </div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card"><h3>Live waveform (mic_0 blue · mic_1 orange)</h3><canvas id="cWave" height="240"></canvas></div>
+    <div class="card"><h3>Last event: waveform &amp; spectrum</h3><canvas id="cEvt" height="110"></canvas><canvas id="cSpec" height="110" style="margin-top:8px"></canvas></div>
+  </div>
+</section>
+
+<!-- LOG -->
+<section class="page" id="p-log"><div class="card">
+  <div class="row"><select id="fM"><option value="">all materials</option></select>
+  <select id="fZ"><option value="">all zones</option></select>
+  <button class="btn" onclick="loadLog()">Refresh</button>
+  <a class="btn" href="/api/events.csv" style="text-decoration:none;color:inherit">⬇ Export CSV</a>
+  <button class="btn dng" onclick="if(confirm('Delete all stored events?'))api('/api/events/clear','POST').then(loadLog)">Clear</button></div>
+  <div class="scroll" style="margin-top:10px"><table id="logT"></table></div>
+</div></section>
+
+<!-- ANALYTICS -->
+<section class="page" id="p-ana"><div class="grid g2">
+  <div class="card"><h3>Taps per material</h3><canvas id="aM" height="220"></canvas></div>
+  <div class="card"><h3>Taps per zone</h3><canvas id="aZ" height="220"></canvas></div>
+  <div class="card"><h3>Taps over time</h3><canvas id="aT" height="220"></canvas></div>
+  <div class="card"><h3>Heatmap zone × material</h3><div id="aH"></div></div>
+</div></section>
+
+<!-- SAFETY -->
+<section class="page" id="p-saf"><div class="grid g2">
+  <div class="card"><h3>Rules</h3>
+    <div class="scroll" id="rules"></div>
+    <div class="row" style="margin-top:10px"><button class="btn" onclick="addRule()">+ Add rule</button>
+    <button class="btn pri" onclick="saveRules()">Save rules</button><span id="ruleMsg" class="mut"></span></div></div>
+  <div class="card"><h3>Alert history</h3>
+    <div class="row"><button class="btn" onclick="api('/api/alerts/ack','POST',{}).then(loadAlerts)">Acknowledge all</button>
+    <a class="btn" href="/api/alerts.csv" style="text-decoration:none;color:inherit">⬇ Export CSV</a>
+    <label style="margin:0"><input type="checkbox" id="beepOn" checked style="width:auto"> beep</label></div>
+    <div class="scroll" style="margin-top:10px"><table id="alertT"></table></div></div>
+</div></section>
+
+<!-- CALIBRATION -->
+<section class="page" id="p-cal"><div class="grid g2">
+  <div class="card"><h3>Per-user calibration wizard</h3>
+    <div class="row"><input id="calUser" value="default" class="wide" style="max-width:200px">
+      <button class="btn pri" onclick="calStart()">Start new profile</button>
+      <select id="calSel"></select><button class="btn" onclick="calSelect()">Use profile</button></div>
+    <div class="steps" id="calSteps"></div>
+    <div class="mid" id="calPrompt" style="margin:14px 0;min-height:80px">—</div>
+    <div class="bar"><div id="calBar"></div></div>
+    <div class="mut" id="calMsg" style="margin:10px 0">—</div>
+    <div class="row" id="calBtns"></div>
+  </div>
+  <div class="card"><h3>Profile</h3><pre id="calProf" style="white-space:pre-wrap;font-size:14px"></pre>
+  <h3>Results</h3><pre id="calRes" style="white-space:pre-wrap;font-size:14px"></pre></div>
+</div></section>
+
+<!-- RECORDER -->
+<section class="page" id="p-rec"><div class="grid g2">
+  <div class="card" id="recCard"><h3>Recorder <span id="recSrc" class="simnote"></span></h3>
+    <div class="row"><select id="rM"></select><select id="rZ"></select>
+    <label style="margin:0">target <input id="rT" type="number" value="40" style="width:80px"></label></div>
+    <div class="row" style="margin:12px 0"><button class="btn pri" onclick="recStart()">● Start recording</button>
+    <button class="btn" onclick="api('/api/recorder/stop','POST')">■ Stop</button>
+    <button class="btn dng" onclick="api('/api/recorder/delete_last','POST')">Delete last sample</button></div>
+    <div class="counter" id="recCnt">0</div>
+    <div class="mid mut" style="text-align:center" id="recOf">of 40</div>
+    <div class="bar" style="margin-top:12px"><div id="recBar"></div></div>
+    <div class="mut" id="recWhere" style="margin-top:8px"></div></div>
+  <div class="card"><h3>Progress grid (saved samples)</h3><div id="recGrid"></div></div>
+</div></section>
+
+<!-- MODEL -->
+<section class="page" id="p-mod"><div class="grid g2">
+  <div class="card"><h3>Active model</h3><div id="modInfo"></div>
+    <div class="row" style="margin-top:12px">
+      <select id="mSrc"><option>synthetic</option><option>real</option><option>mixed</option></select>
+      <select id="mTyp"><option>rf</option><option>svm</option></select>
+      <button class="btn pri" onclick="retrain()">Retrain</button></div>
+    <div class="mut" id="modJob" style="margin-top:8px"></div></div>
+  <div class="card"><h3>Ablation: tap-only vs probe-only vs combined</h3><div id="modAbl"></div></div>
+  <div class="card"><h3>Material confusion matrix</h3><div id="modCM"></div></div>
+  <div class="card"><h3>Zone confusion matrix</h3><div id="modCZ"></div></div>
+</div></section>
+
+<!-- NODE -->
+<section class="page" id="p-node"><div class="grid g2">
+  <div class="card"><h3>SPINE service advertisement</h3><pre id="nodeAdv" style="white-space:pre-wrap"></pre>
+    <h3>Runtime configuration</h3><pre id="nodeCfg" style="white-space:pre-wrap"></pre>
+    <h3>Link</h3><pre id="nodeLink" style="white-space:pre-wrap"></pre></div>
+  <div class="card"><h3>SPINE commands</h3>
+    <div class="row" style="margin-bottom:10px"><input id="nPort" placeholder="COM5 (blank = auto)" style="width:190px">
+      <button class="btn pri" onclick="nodeCmd('connect',{port:nPort.value})">Connect &amp; start</button></div>
+    <div class="row"><button class="btn" onclick="nodeCmd('discover')">SERVICE_DISCOVERY</button>
+      <button class="btn pri" onclick="nodeCmd('start',{live:true})">START</button>
+      <button class="btn" onclick="nodeCmd('stop')">STOP</button>
+      <button class="btn dng" onclick="nodeCmd('reset')">RESET</button></div>
+    <h3 style="margin-top:18px">SETUP_SENSOR</h3>
+    <div class="row"><label>rate Hz<select id="nRate"><option>5000</option><option selected>10000</option><option>20000</option></select></label>
+    <label>threshold<input id="nThr" type="number" value="120"></label>
+    <label>refractory ms<input id="nRef" type="number" value="300"></label>
+    <button class="btn" onclick="nodeCmd('setup',{rate_hz:+nRate.value,threshold:+nThr.value,refractory_ms:+nRef.value})">Send</button></div>
+    <h3 style="margin-top:18px">SETUP_PROBE</h3>
+    <div class="row"><label><input type="checkbox" id="nPe" checked style="width:auto"> enabled</label>
+    <label>f start<input id="nF0" type="number" value="300"></label><label>f end<input id="nF1" type="number" value="4000"></label>
+    <label>ms<input id="nDur" type="number" value="50"></label>
+    <button class="btn" onclick="nodeCmd('setup',{probe_enabled:nPe.checked,f_start:+nF0.value,f_end:+nF1.value,duration_ms:+nDur.value})">Send</button></div>
+    <div class="mut" id="nodeMsg" style="margin-top:12px"></div>
+    <h3 style="margin-top:18px">Message log</h3><div class="scroll" style="max-height:200px"><pre id="nodeLog" style="font-size:13px"></pre></div>
+  </div>
+</div></section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const TABS=[["live","LIVE"],["log","EVENT LOG"],["ana","ANALYTICS"],["saf","SAFETY"],["cal","CALIBRATION"],["rec","RECORDER"],["mod","MODEL"],["node","SPINE NODE"]];
+const COL={finger:"#f7b7a3",metal:"#9fc5ff",wood:"#e0b070",plastic:"#b8f0a0",unknown:"#8f9bc0"};
+let S={},cur="live",beep=null;
+async function api(p,m="GET",b){const r=await fetch(p,{method:m,headers:{"Content-Type":"application/json"},body:b?JSON.stringify(b):undefined});
+  if(!r.ok){let t="";try{t=(await r.json()).detail}catch(e){}; $("nodeMsg")&&($("nodeMsg").textContent="Error: "+t); throw new Error(t||r.status)}
+  return r.json()}
+// ---------- tabs
+TABS.forEach(([id,l])=>{const b=document.createElement("button");b.textContent=l;b.dataset.id=id;b.onclick=()=>show(id);$("tabs").append(b)});
+function show(id){cur=id;document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id=="p-"+id));
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.id==id));
+  location.hash=id; ({log:loadLog,ana:loadAna,saf:()=>{renderRules();loadAlerts()},cal:calRender,rec:recRender,mod:modRender,node:nodeRender})[id]?.()}
+// ---------- websocket
+function connect(){const ws=new WebSocket((location.protocol=="https:"?"wss://":"ws://")+location.host+"/ws");
+  ws.onmessage=e=>handle(JSON.parse(e.data));ws.onclose=()=>setTimeout(connect,1000)}
+function handle(m){
+  if(m.type=="hello"){S=m.state;header();fillSelects();show(location.hash.slice(1)||"live");loadAlerts(true)}
+  else if(m.type=="live")liveFrame(m);
+  else if(m.type=="event")onEvent(m);
+  else if(m.type=="status"){S.status=m.status;header();if(cur=="node")nodeRender()}
+  else if(m.type=="node"){S.status=m.status;header();if(cur=="node")nodeRender()}
+  else if(m.type=="alert")onAlert(m.alert);
+  else if(m.type=="alerts_acked"){$("banner").style.display="none"}
+  else if(m.type=="recorder"){S.recorder=m;recRender();if(m.saved)flash("recCard")}
+  else if(m.type=="calib"){S.calib=m;calRender()}
+  else if(m.type=="model"){S.model=m.model;if(cur=="mod")modRender();header()}
+  else if(m.type=="profile"){S.profile=m.profile;header()}
+  else if(m.type=="message"){const l=$("nodeLog");l.textContent=new Date().toLocaleTimeString()+"  "+m.code_name+" (ref 0x"+m.ref_type.toString(16)+") "+m.text+"\n"+l.textContent}
+}
+function header(){const st=S.status||{};const b=$("modeBadge");
+  b.textContent=st.simulated?"SIMULATED":"REAL DEVICE";b.className="badge "+(st.simulated?"sim":"real");
+  const n=st.node||{};
+  $("pNode").innerHTML="node: <b>"+(st.connected?(st.running?"connected · streaming":"connected · stopped"):"not connected")+"</b>";
+  $("pRate").innerHTML="rate: <b>"+(n.rate_hz?n.rate_hz+" Hz":"—")+"</b>";
+  $("pFw").innerHTML="fw: <b>"+(n.firmware||"—")+" · "+(n.board_name||"")+"</b>";
+  $("pEpm").innerHTML="events/min: <b>"+(st.events_per_min||0)+"</b>";
+  $("pUser").innerHTML="user: <b>"+((S.profile&&S.profile.name)||"default")+"</b>";
+  const a=S.model&&S.model.active;
+  $("pModel").innerHTML="model: <b>"+(a?a.tag.slice(0,28)+" ["+a.source+"]":"none")+"</b>";
+  $("simTap").style.display=st.simulated?"flex":"none";
+  if(st.simulated)document.title="[SIM] Arm Acoustic Sensor"}
+function fillSelects(){const C=S.config;
+  const opt=(a,pre)=>(pre||"")+a.map(x=>`<option>${x}</option>`).join("");
+  ["stM","rM"].forEach(i=>$(i).innerHTML=opt(C.materials));["stZ","rZ"].forEach(i=>$(i).innerHTML=opt(C.zones));
+  $("fM").innerHTML=opt(C.materials,'<option value="">all materials</option>');
+  $("fZ").innerHTML=opt(C.zones,'<option value="">all zones</option>')}
+function flash(id){const e=$(id);e.classList.remove("flash");void e.offsetWidth;e.classList.add("flash")}
+// ---------- LIVE
+const N=3000;let buf=[new Array(N).fill(0),new Array(N).fill(0)];
+function liveFrame(m){m.samples.forEach((s,c)=>{buf[c]=buf[c].concat(s).slice(-N)});if(cur=="live")drawWave()}
+function drawWave(){const c=$("cWave"),w=c.clientWidth;if(c.width!=w)c.width=w;const g=c.getContext("2d");g.clearRect(0,0,c.width,c.height);
+  g.strokeStyle="#2a3558";g.beginPath();g.moveTo(0,c.height/2);g.lineTo(c.width,c.height/2);g.stroke();
+  const mx=Math.max(300,...buf[0].map(Math.abs),...buf[1].map(Math.abs));
+  [["#4aa3ff",0],["#ffb020",1]].forEach(([col,ch])=>{g.strokeStyle=col;g.lineWidth=1.6;g.beginPath();
+    buf[ch].forEach((v,i)=>{const x=i/N*c.width,y=c.height/2-v/mx*(c.height/2-6);i?g.lineTo(x,y):g.moveTo(x,y)});g.stroke()})}
+function lines(cv,series,cols,dx){const w=cv.clientWidth;if(cv.width!=w)cv.width=w;const g=cv.getContext("2d");g.clearRect(0,0,cv.width,cv.height);
+  const mx=Math.max(1,...series.flat().map(Math.abs));
+  series.forEach((s,k)=>{g.strokeStyle=cols[k];g.beginPath();s.forEach((v,i)=>{const x=i/(s.length-1)*cv.width,y=cv.height/2-v/mx*(cv.height/2-4);i?g.lineTo(x,y):g.moveTo(x,y)});g.stroke()})}
+function onEvent(e){
+  const mat=e.material;$("matName").textContent=mat;$("matName").style.color=COL[mat]||"#fff";
+  $("zoneName").textContent="Zone: "+e.zone.replace("_"," ")+"  ("+Math.round(e.zone_conf*100)+"%)";
+  $("confTxt").textContent=Math.round(e.material_conf*100)+"%";$("confBar").style.width=e.material_conf*100+"%";
+  $("evMeta").textContent=(e.simulated?"SIMULATED · ":"REAL · ")+"probe "+(e.probe_used?"used":"off")+" · TDOA "+e.tdoa_ms+" ms · level ratio "+e.ratio_db+" dB";
+  ["wrist","mid_forearm"].forEach(z=>$("z-"+z).classList.remove("hit"));
+  const z=$("z-"+e.zone);if(z){z.classList.add("hit");setTimeout(()=>z.classList.remove("hit"),900)}
+  lines($("cEvt"),e.wave,["#4aa3ff","#ffb020"]);lines($("cSpec"),e.spec.map(a=>a.map(v=>v-Math.min(...a))),["#4aa3ff","#ffb020"]);
+  if(cur=="log")loadLog()}
+function simTap(){api("/api/sim/tap","POST",{material:$("stM").value,zone:$("stZ").value})}
+// ---------- alerts
+function onAlert(a){const b=$("banner");b.className=a.level;b.style.display="block";
+  b.textContent=a.level.toUpperCase()+": "+a.message+"  ["+a.material+" · "+a.zone.replace("_"," ")+"]";
+  b.onclick=()=>{api("/api/alerts/ack","POST",{id:a.id});b.style.display="none"};
+  if($("beepOn").checked)doBeep(a.level);if(cur=="saf")loadAlerts()}
+function doBeep(l){try{beep=beep||new (window.AudioContext||window.webkitAudioContext)();const o=beep.createOscillator(),g=beep.createGain();
+  o.frequency.value={info:660,warning:880,danger:1200}[l]||800;o.type=l=="danger"?"square":"sine";g.gain.value=.15;o.connect(g);g.connect(beep.destination);
+  o.start();o.stop(beep.currentTime+(l=="danger"?.5:.2))}catch(e){}}
+async function loadAlerts(banner){const a=await api("/api/alerts");const t=$("alertT");
+  t.innerHTML="<tr><th>time</th><th>level</th><th>rule</th><th>message</th><th>ack</th></tr>"+a.map(x=>
+   `<tr><td>${new Date(x.ts*1000).toLocaleTimeString()}</td><td class="lvl-${x.level}"><b>${x.level}</b></td><td>${x.rule}</td><td>${x.message}</td><td>${x.acked?"✓":`<button class="btn" onclick="api('/api/alerts/ack','POST',{id:${x.id}}).then(loadAlerts)">ack</button>`}</td></tr>`).join("")}
+let rules=[];
+function renderRules(){rules=JSON.parse(JSON.stringify(S.rules||[]));drawRules()}
+function drawRules(){const C=S.config;const sel=(v,arr,i,k)=>`<select onchange="rules[${i}].${k}=this.value">${arr.map(a=>`<option ${a==v?"selected":""}>${a}</option>`).join("")}</select>`;
+  $("rules").innerHTML=rules.map((r,i)=>`<div class="card" style="margin-bottom:10px;background:var(--panel2)">
+   <div class="row"><input class="wide" style="flex:1" value="${r.name||""}" placeholder="rule name" onchange="rules[${i}].name=this.value">
+   <button class="btn dng" onclick="rules.splice(${i},1);drawRules()">✕</button></div>
+   <div class="row" style="margin-top:8px">material ${sel(r.material,["any","unknown",...C.materials],i,"material")}
+   zone ${sel(r.zone,["any",...C.zones],i,"zone")}
+   min conf <input type="number" step="0.05" min="0" max="1" value="${r.min_confidence}" onchange="rules[${i}].min_confidence=+this.value">
+   count <input type="number" min="1" value="${r.count}" style="width:70px" onchange="rules[${i}].count=+this.value">
+   within s <input type="number" min="0" value="${r.window_s}" style="width:80px" onchange="rules[${i}].window_s=+this.value"></div>
+   <div class="row" style="margin-top:8px">level ${sel(r.level,["info","warning","danger"],i,"level")}
+   <input class="wide" style="flex:1" value="${r.message||""}" placeholder="alert message" onchange="rules[${i}].message=this.value"></div></div>`).join("")}
+function addRule(){rules.push({id:"",name:"New rule",material:"any",zone:"any",min_confidence:.5,count:1,window_s:0,level:"warning",message:"Alert"});drawRules()}
+async function saveRules(){try{S.rules=await api("/api/safety/rules","PUT",rules);$("ruleMsg").textContent="saved ✓";renderRules()}catch(e){$("ruleMsg").textContent="error: "+e.message}}
+// ---------- log / analytics
+async function loadLog(){const q=new URLSearchParams({limit:300,material:$("fM").value,zone:$("fZ").value});const r=await api("/api/events?"+q);
+  $("logT").innerHTML="<tr><th>time</th><th>zone</th><th>material</th><th>zone conf</th><th>mat conf</th><th>probe</th><th>source</th><th>user</th></tr>"+
+  r.map(x=>`<tr><td>${new Date(x.ts*1000).toLocaleTimeString()}</td><td>${x.zone}</td><td style="color:${COL[x.material]||"#fff"}"><b>${x.material}</b></td><td>${(x.zone_conf*100).toFixed(0)}%</td><td>${(x.material_conf*100).toFixed(0)}%</td><td>${x.probe?"yes":"no"}</td><td>${x.source}</td><td>${x.user}</td></tr>`).join("")}
+function bars(cv,obj,colf){const w=cv.clientWidth;cv.width=w;const g=cv.getContext("2d");g.clearRect(0,0,w,cv.height);
+  const k=Object.keys(obj),mx=Math.max(1,...Object.values(obj)),bw=w/Math.max(k.length,1);g.font="15px sans-serif";
+  k.forEach((n,i)=>{const h=obj[n]/mx*(cv.height-50);g.fillStyle=colf?colf(n):"#4aa3ff";g.fillRect(i*bw+14,cv.height-30-h,bw-28,h);
+   g.fillStyle="#e8ecf8";g.textAlign="center";g.fillText(obj[n],i*bw+bw/2,cv.height-34-h);g.fillStyle="#8f9bc0";g.fillText(n.replace("_"," "),i*bw+bw/2,cv.height-8)})}
+async function loadAna(){const a=await api("/api/analytics");
+  bars($("aM"),a.by_material,n=>COL[n]);bars($("aZ"),a.by_zone);
+  const t={};a.timeline.forEach((p,i)=>t[new Date(p.t*1000).toLocaleTimeString().slice(0,5)+"_"+i]=p.n);
+  const cv=$("aT");cv.width=cv.clientWidth;const g=cv.getContext("2d");g.clearRect(0,0,cv.width,cv.height);
+  const v=a.timeline.map(p=>p.n),mx=Math.max(1,...v);g.strokeStyle="#3ddc97";g.lineWidth=2.5;g.beginPath();
+  v.forEach((n,i)=>{const x=10+i/Math.max(v.length-1,1)*(cv.width-20),y=cv.height-20-n/mx*(cv.height-40);i?g.lineTo(x,y):g.moveTo(x,y)});g.stroke();
+  g.fillStyle="#8f9bc0";g.font="14px sans-serif";g.fillText("max "+mx+" taps / bin · total "+a.total,10,16);
+  const C=S.config,zs=[...C.zones],ms=[...C.materials,"unknown"];let mxh=Math.max(1,...Object.values(a.heatmap));
+  $("aH").innerHTML="<table><tr><th></th>"+ms.map(m=>`<th>${m}</th>`).join("")+"</tr>"+zs.concat(["unknown"]).map(z=>"<tr><th>"+z+"</th>"+ms.map(m=>{const n=a.heatmap[z+"|"+m]||0;
+   return `<td><div class="cell" style="background:rgba(74,163,255,${.1+.9*n/mxh});font-weight:700">${n}</div></td>`}).join("")+"</tr>").join("")+"</table>"}
+// ---------- calibration
+const CAL=[["silence","1 Silence"],["gain","2 Gain"],["baseline","3 Probe baseline"],["samples","4 Personal samples"],["adapt","5 Adapt model"]];
+async function calStart(){S.calib=await api("/api/calib/start","POST",{user:$("calUser").value});calRender()}
+async function calSelect(){const n=$("calSel").value;if(n){await api("/api/profiles/select","POST",{name:n});S.calib=await api("/api/calib");calRender()}}
+async function calStep(s){S.calib=await api(s=="adapt"?"/api/calib/adapt":"/api/calib/step","POST",s=="adapt"?undefined:{step:s});calRender()}
+function calRender(){const c=S.calib||{};
+  const order=["silence","gain","baseline","samples","adapt"];const idx=s=>order.indexOf((s||"").split("_")[0]=="adapting"?"adapt":(s||"").split("_")[0]);
+  const ci=idx(c.step),done=(c.step||"").endsWith("_done")||c.step=="done";
+  $("calSteps").innerHTML=CAL.map(([k,l],i)=>`<span class="${i<ci||(i==ci&&done)?"done":i==ci?"on":""}">${l}</span>`).join("");
+  $("calPrompt").textContent=c.prompt||(c.step=="idle"?"Enter a user name and press Start.":"");
+  $("calBar").style.width=(c.progress||0)*100+"%";$("calMsg").textContent=c.message||"";
+  $("calBtns").innerHTML=c.step&&c.step!="idle"?CAL.map(([k,l])=>`<button class="btn ${k=="adapt"?"":""}" onclick="calStep('${k}')">${k=="adapt"?"Adapt model":"Run: "+l.slice(2)}</button>`).join(""):"";
+  $("calSel").innerHTML=(c.profiles||[]).map(p=>`<option>${p}</option>`).join("");
+  $("calProf").textContent=JSON.stringify(c.profile||{},null,1);$("calRes").textContent=JSON.stringify(c.result||{},null,1)}
+// ---------- recorder
+async function recStart(){await api("/api/recorder/start","POST",{material:$("rM").value,zone:$("rZ").value,target:+$("rT").value})}
+function recRender(){const r=S.recorder;if(!r)return;
+  $("recCnt").textContent=r.session_count;$("recOf").textContent="of "+r.target+(r.active?"  — recording "+r.material+" / "+r.zone:"  — idle");
+  $("recBar").style.width=Math.min(100,r.session_count/r.target*100)+"%";
+  $("recSrc").textContent=r.source=="SIMULATED"?"(SIMULATED data → "+r.root.split(/[\\/]/).slice(-2).join("/")+")":"";
+  $("recWhere").textContent="Saving to "+r.root;
+  const mx=Math.max(1,r.target);
+  $("recGrid").innerHTML="<table><tr><th></th>"+r.zones.map(z=>`<th>${z}</th>`).join("")+"</tr>"+r.materials.map(m=>"<tr><th>"+m+"</th>"+r.zones.map(z=>{
+    const n=r.counts[m][z];return `<td><div class="cell" style="background:rgba(61,220,151,${.08+.8*Math.min(1,n/mx)})"><b>${n}</b> / ${r.target}</div></td>`}).join("")+"</tr>").join("")+"</table>"}
+// ---------- model
+async function modRender(){const m=S.model=await api("/api/model");const a=m.active;
+  if(!a){$("modInfo").textContent="No model loaded.";return}
+  const pc=x=>x==null?"—":(x*100).toFixed(1)+"%";
+  $("modInfo").innerHTML=`<div class="mid">${a.tag}</div><div class="${a.source=="synthetic"?"simnote":""}"><b>${a.banner}</b></div>
+   <table><tr><td>version</td><td>${a.tag}</td></tr><tr><td>classifier</td><td>${a.model_type}</td></tr><tr><td>samples</td><td>${a.n_samples}${a.user_samples?" (incl. "+a.user_samples+" personal)":""}</td></tr>
+   <tr><td>material accuracy (CV)</td><td><b>${pc(a.accuracy&&a.accuracy.material)}</b> ${a.results&&a.results.material?a.results.material.cv:""}</td></tr>
+   <tr><td>zone accuracy (CV)</td><td><b>${pc(a.accuracy&&a.accuracy.zone)}</b></td></tr>
+   <tr><td>probe features</td><td>${a.has_probe?"yes":"no"}</td></tr></table>
+   <label>available versions (click to activate)</label><div class="row">${m.tags.slice(0,8).map(t=>`<button class="btn" onclick="api('/api/model/activate','POST',{tag:'${t}'}).then(modRender).then(()=>api('/api/state').then(s=>{S=s;header()}))">${t.slice(0,30)}</button>`).join("")}</div>`;
+  const ab=a.results&&a.results.ablation;
+  $("modAbl").innerHTML=ab?Object.entries(ab).map(([k,v])=>`<div style="margin:10px 0"><div>${k}: <b>${(v*100).toFixed(1)}%</b></div><div class="bar"><div style="width:${v*100}%"></div></div></div>`).join("")+`<div class="mut">${a.banner}</div>`:"No ablation for this model.";
+  const base="/models/"+a.tag+"/";
+  $("modCM").innerHTML=`<img class="cm" src="${base}confusion_material.png?${Date.now()}" onerror="this.replaceWith('not available for this model')">`;
+  $("modCZ").innerHTML=`<img class="cm" src="${base}confusion_zone.png?${Date.now()}" onerror="this.replaceWith('not available for this model')">`;
+  $("modJob").textContent=m.job.message||""}
+async function retrain(){try{await api("/api/model/retrain","POST",{source:$("mSrc").value,model_type:$("mTyp").value});modRender()}catch(e){$("modJob").textContent=e.message}}
+// ---------- node
+async function nodeCmd(a,b){try{S.status=await api("/api/node/"+a,"POST",b||{});$("nodeMsg").textContent=a+" sent ✓";header();nodeRender()}catch(e){$("nodeMsg").textContent=a+": "+e.message}}
+function nodeRender(){const st=S.status||{};$("nodeAdv").textContent=st.node?JSON.stringify(st.node,null,1):"No SERVICE_ADVERTISEMENT yet — press SERVICE_DISCOVERY";
+  $("nodeCfg").textContent=JSON.stringify(st.config||{},null,1);
+  $("nodeLink").textContent=`transport : ${st.description}\nrunning   : ${st.running}\nevents    : ${st.events}\ncrc errors: ${st.crc_errors}\nlast frame: ${st.last_frame_age==null?"—":st.last_frame_age.toFixed(1)+" s ago"}`+((S.ports&&S.ports.length)?`\nserial ports: ${S.ports.join(", ")}`:"")}
+window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h&&h!=cur&&S.config)show(h)});
+window.addEventListener("resize",()=>{if(cur=="live")drawWave()});
+connect();
+</script>
+</body>
+</html>

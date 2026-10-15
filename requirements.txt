@@ -1,0 +1,12 @@
+numpy
+scipy
+scikit-learn
+joblib
+matplotlib
+pyyaml
+pyserial
+fastapi
+uvicorn
+websockets
+pytest
+httpx
